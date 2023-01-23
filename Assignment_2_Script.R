@@ -73,10 +73,12 @@ summary(data$M4[data$M4<97 & !data$M8==2])
 
 #Generating three data sets for each of the three questions:
 
-df1<-subset(data, select = c(M6, A50A, A3Ar_w, A5_2015, A6, A8_2021, A9, A41, J2, J8, B14, M4, M20, J43))
+df1<-subset(data, select = c(M6, A50A, A3Ar_w, A5_2015, A6, A8_2021, A9, A41, J2, J8, B14, M4, 
+                             M20, J43, A4A_new_w, A11, A7))
 View(df1)
 df1_names<-c("y_interest", "gender", "age", "educ", "marital", "income", "employment", "educ_raised", 
-             "risk", "retirement", "investment", "knowledge", "educ_fin", "goals")
+             "risk", "retirement", "investment", "knowledge", "educ_fin", "goals", "ethnicity", "children",
+             "living")
 colnames(df1)<-df1_names
 
 #Replacing "Prefer not to say" with missing values
@@ -86,12 +88,14 @@ df1[df1==99]<-NA
 df1$y_interest[df1$y_interest !=1 | df1$y_interest != NA]<-0
 
 #Check for correct imputation of values
-sum(is.na(df1$y_interest))-table(data$M6)
+sum(is.na(df1$y_interest))
+table(data$M6)
 
 #Needing to one-hot encode the other variables. First convert to factors.
 str(df1)
 names <- c("gender", "age", "educ", "marital", "income", "employment", "educ_raised", 
-           "risk", "retirement", "investment", "knowledge", "educ_fin", "goals")
+           "risk", "retirement", "investment", "knowledge", "educ_fin", "goals", "ethnicity", "children",
+           "living")
 df1[,names] <- lapply(df1[,names] , factor)
 
 #Then one-hot encode.
@@ -100,15 +104,96 @@ df1 <- data.frame(predict(dmy1, newdata = df1))
 
 #Check final dataframe
 View(df1)
+summary(df2)
 
+#Repeat for the question on bonds:
+df2<-subset(data, select = c(M8, A50A, A3Ar_w, A5_2015, A6, A8_2021, A9, A41, J2, J8, B14, M4, M20, J43,
+                             A4A_new_w, A11, A7))
+df2_names<-c("y_bond", "gender", "age", "educ", "marital", "income", "employment", "educ_raised", 
+             "risk", "retirement", "investment", "knowledge", "educ_fin", "goals", "ethnicity", "children",
+             "living")
+colnames(df2)<-df2_names
 
-df2<-subset(data, select = c(M8, A50A, A3Ar_w, A5_2015, A6, A8_2021, A9, A41, J2, J8, B14, M4, M20, J43))
+#Replacing "Prefer not to say" with missing values
+df2[df2==99]<-NA
+
+#Transform outcome into binary variable
+df2$y_bond[df2$y_bond !=1 | df2$y_bond != NA]<-0
+
+#Check for correct imputation of values
+sum(is.na(df2$y_bond))
+table(data$M8)
+
+#Needing to one-hot encode the other variables. First convert to factors.
+str(df2)
+
+df2[,names] <- lapply(df2[,names] , factor)
+
+#Then one-hot encode.
+dmy2 <- dummyVars(" ~ .", data = df2)
+df2 <- data.frame(predict(dmy2, newdata = df2))
+
+#Check final dataframe
 View(df2)
+summary(df2)
 
-df3<-subset(data, select = c(M10, A50A, A3Ar_w, A5_2015, A6, A8_2021, A9, A41, J2, J8, B14, M4, M20, J43))
+#Repeat for the question on diversification:
+df3<-subset(data, select = c(M10, A50A, A3Ar_w, A5_2015, A6, A8_2021, A9, A41, J2, J8, B14, M4, M20, J43,
+                             A4A_new_w, A11, A7))
+df3_names<-c("y_diversification", "gender", "age", "educ", "marital", "income", "employment", "educ_raised", 
+             "risk", "retirement", "investment", "knowledge", "educ_fin", "goals", "ethnicity", "children",
+             "living")
+colnames(df3)<-df3_names
+
+#Replacing "Prefer not to say" with missing values
+df3[df3==99]<-NA
+
+#Transform outcome into binary variable
+df3$y_diversification[df3$y_diversification !=1 | df3$y_diversification != NA]<-0
+
+#Check for correct imputation of values
+sum(is.na(df3$y_diversification))
+table(data$M10)
+
+#Needing to one-hot encode the other variables. First convert to factors.
+str(df3)
+
+df3[,names] <- lapply(df3[,names] , factor)
+
+#Then one-hot encode.
+dmy3 <- dummyVars(" ~ .", data = df3)
+df3 <- data.frame(predict(dmy3, newdata = df3))
+
+#Check final dataframe
 View(df3)
-####Analysis####
+summary(df3)
 
-#Logistic regression
+#####Analysis#####
 
-#Classification tree
+#Splitting the data randomly in half
+set.seed(12345)
+
+train<-sample(c(TRUE, FALSE), nrow(data), replace=TRUE, prob = c(0.5, 0.5))
+test<-!train
+
+#Check ratio
+sum(train)
+sum(test)
+#Looks okay
+
+#Generate the train datasets and the test datasets
+df1_train<-df1[train,]
+df1_test<-df1[test,]
+
+df2_train<-df2[train,]
+df2_test<-df2[test,]
+
+df3_train<-df3[train,]
+df3_test<-df3[test,]
+
+####Logistic regression####
+
+
+
+
+####Classification tree####
