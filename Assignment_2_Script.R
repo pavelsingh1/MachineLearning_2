@@ -4,6 +4,7 @@
 #Loading required packages#
 library(vtable)
 library(readr)
+library(caret)
 
 
 #Goal: Predicting financial literacy question answers
@@ -87,9 +88,17 @@ df1$y_interest[df1$y_interest !=1 | df1$y_interest != NA]<-0
 #Check for correct imputation of values
 sum(is.na(df1$y_interest))-table(data$M6)
 
-#Needing to one-hot encode the other variables
+#Needing to one-hot encode the other variables. First convert to factors.
+str(df1)
+names <- c("gender", "age", "educ", "marital", "income", "employment", "educ_raised", 
+           "risk", "retirement", "investment", "knowledge", "educ_fin", "goals")
+df1[,names] <- lapply(df1[,names] , factor)
 
+#Then one-hot encode.
+dmy1 <- dummyVars(" ~ .", data = df1)
+df1 <- data.frame(predict(dmy1, newdata = df1))
 
+#Check final dataframe
 View(df1)
 
 
