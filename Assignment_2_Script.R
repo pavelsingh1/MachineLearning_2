@@ -5,7 +5,10 @@
 library(vtable)
 library(readr)
 library(caret)
-
+library(xgboost)
+library(ParBayesianOptimization)
+library(doParallel)
+library(rpart)
 
 #Goal: Predicting financial literacy question answers
 
@@ -193,7 +196,39 @@ df3_test<-df3[test,]
 
 ####Logistic regression####
 
+##Question on interest rates
+model1_log <- glm(y_interest ~.,family=binomial(link='logit'),data=df1_train)
+summary(model1_log)
+fitted1<-predict(model1_log, newdata=subset(df1_test, select= -c(y_interest)))
+View(fitted1)
 
+#Calculating mean error
+err1_log <- mean(as.numeric(fitted1 > 0.5) != df1_test$y_interest, na.rm=TRUE)
 
+##Question on bonds
+model2_log <- glm(y_bond ~.,family=binomial(link='logit'),data=df2_train)
+summary(model2_log)
+fitted2<-predict(model2_log, newdata=subset(df2_test, select=-c(y_bond)))
+View(fitted2)
+
+#Calculating mean error
+err2_log <- mean(as.numeric(fitted2 > 0.5) != df2_test$y_bond, na.rm=TRUE)
+
+##Question on diversification
+model3_log <- glm(y_diversification ~.,family=binomial(link='logit'),data=df3_train)
+summary(model3_log)
+fitted3<-predict(model3_log, newdata=subset(df3_test, select=-c(y_diversification)))
+View(fitted3)
+
+#Calculating mean error
+err3_log <- mean(as.numeric(fitted3 > 0.5) != df3_test$y_diversification, na.rm=TRUE)
 
 ####Classification tree####
+
+#Not working properly! Predictions are off. No idea how to fix it.
+
+model1_tree<-rpart(y_interest~., data = df1_train, method="class")
+summary(model1_tree)
+
+fitted1_tree<-predict(model1_tree, data=df1_test, type="class")
+err1_tree <- mean(as.numeric(fitted1_tree > 0.5) != df1_test$y_interest, na.rm=TRUE)
