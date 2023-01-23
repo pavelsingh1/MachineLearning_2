@@ -68,12 +68,36 @@ summary(data$M4[data$M4<97 & data$M8==2])
 hist(data$M4[data$M4<97 & !data$M8==2])
 summary(data$M4[data$M4<97 & !data$M8==2])
 
-
-
 ####Data cleaning####
 
+#Generating three data sets for each of the three questions:
+
+df1<-subset(data, select = c(M6, A50A, A3Ar_w, A5_2015, A6, A8_2021, A9, A41, J2, J8, B14, M4, M20, J43))
+View(df1)
+df1_names<-c("y_interest", "gender", "age", "educ", "marital", "income", "employment", "educ_raised", 
+             "risk", "retirement", "investment", "knowledge", "educ_fin", "goals")
+colnames(df1)<-df1_names
+
+#Replacing "Prefer not to say" with missing values
+df1[df1==99]<-NA
+
+#Transform outcome into binary variable
+df1$y_interest[df1$y_interest !=1 | df1$y_interest != NA]<-0
+
+#Check for correct imputation of values
+sum(is.na(df1$y_interest))-table(data$M6)
+
+#Needing to one-hot encode the other variables
 
 
+View(df1)
+
+
+df2<-subset(data, select = c(M8, A50A, A3Ar_w, A5_2015, A6, A8_2021, A9, A41, J2, J8, B14, M4, M20, J43))
+View(df2)
+
+df3<-subset(data, select = c(M10, A50A, A3Ar_w, A5_2015, A6, A8_2021, A9, A41, J2, J8, B14, M4, M20, J43))
+View(df3)
 ####Analysis####
 
 #Logistic regression
