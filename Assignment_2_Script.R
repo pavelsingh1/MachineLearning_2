@@ -271,7 +271,7 @@ ggplot(model.data3, aes(index, .std.resid)) +
   geom_point(aes(color = "red"), alpha = .5) +
   theme_bw()
 #Visual inspection: Some standard residuals seem to be in absolute value slightly above three.
-#Ignore, as only marginal.
+#Ignore, as only marginal. 
 
 
 ####Classification tree####
