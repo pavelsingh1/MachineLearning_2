@@ -9,6 +9,10 @@ library(xgboost)
 library(ParBayesianOptimization)
 library(doParallel)
 library(rpart)
+library(ggplot2)
+library(car)
+library(broom)
+library(dplyr)
 
 #Goal: Predicting financial literacy question answers
 
@@ -210,6 +214,20 @@ View(fitted1)
 #Calculating mean error
 err1_log <- mean(as.numeric(fitted1 > 0.5) != df1_test$y_interest, na.rm=TRUE)
 
+#Model diagnostics: checking for extreme values 
+#(http://www.sthda.com/english/articles/36-classification-methods-essentials/148-logistic-regression-assumptions-and-diagnostics-in-r/#logistic-regression-diagnostics)
+  plot(model1_log, which = 4, id.n = 3)
+
+  model.data1 <- augment(model1_log) %>% 
+  mutate(index = 1:n()) 
+
+  model.data1 %>% top_n(3, .cooksd)
+
+  ggplot(model.data1, aes(index, .std.resid)) + 
+  geom_point(aes(color = "red"), alpha = .5) +
+  theme_bw()
+#Visual inspection: No standard residual in absolute value above three.
+
 ##Question on bonds
 model2_log <- glm(y_bond ~.,family=binomial(link='logit'),data=df2_train)
 summary(model2_log)
@@ -219,6 +237,19 @@ View(fitted2)
 #Calculating mean error
 err2_log <- mean(as.numeric(fitted2 > 0.5) != df2_test$y_bond, na.rm=TRUE)
 
+#Model diagnostics: checking for extreme values
+plot(model2_log, which = 4, id.n = 3)
+
+model.data2 <- augment(model2_log) %>% 
+  mutate(index = 1:n()) 
+
+model.data2 %>% top_n(3, .cooksd)
+
+ggplot(model.data2, aes(index, .std.resid)) + 
+  geom_point(aes(color = "red"), alpha = .5) +
+  theme_bw()
+#Visual inspection: No standard residual in absolute value above three.
+
 ##Question on diversification
 model3_log <- glm(y_diversification ~.,family=binomial(link='logit'),data=df3_train)
 summary(model3_log)
@@ -227,6 +258,21 @@ View(fitted3)
 
 #Calculating mean error
 err3_log <- mean(as.numeric(fitted3 > 0.5) != df3_test$y_diversification, na.rm=TRUE)
+
+#Model diagnostics: checking for extreme values
+plot(model3_log, which = 4, id.n = 3)
+
+model.data3 <- augment(model3_log) %>% 
+  mutate(index = 1:n()) 
+
+model.data3 %>% top_n(3, .cooksd)
+
+ggplot(model.data3, aes(index, .std.resid)) + 
+  geom_point(aes(color = "red"), alpha = .5) +
+  theme_bw()
+#Visual inspection: Some standard residuals seem to be in absolute value slightly above three.
+#Ignore, as only marginal.
+
 
 ####Classification tree####
 
@@ -290,6 +336,9 @@ importance_matrix_1 <- xgb.importance(model = model1_boost)
 xgb.plot.importance(importance_matrix_1)
 
 ########################Code seems to work until here#########################
+#Current problem: Paramter Optimisation does not find the data and fails to initialize. Weird, as it is 
+#more or less copy and paste of last assignments' code.
+#Overview over parameters: https://xgboost.readthedocs.io/en/stable/parameter.html
 
 #Parameter Optimisation
 obj_func <- function(eta, max_depth, min_child_weight, subsample, lambda, alpha) {
