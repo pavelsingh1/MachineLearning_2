@@ -176,17 +176,22 @@ summary(df3)
 #Splitting the data randomly in half
 set.seed(12345)
 
-train<-sample(c(TRUE, FALSE), nrow(data), replace=TRUE, prob = c(0.5, 0.5))
-test<-!train
+dim(df1)
+df1<-df1[!is.na(df1$y_interest),]
+dim(df1)
+sum(is.na(df1$y_interest))
+
+train1<-sample(c(TRUE, FALSE), nrow(df1), replace=TRUE, prob = c(0.5, 0.5))
+test1<-!train1
 
 #Check ratio
-sum(train)
-sum(test)
+sum(train1)
+sum(test1)
 #Looks okay
 
 #Generate the train datasets and the test datasets
-df1_train<-df1[train,]
-df1_test<-df1[test,]
+df1_train<-df1[train1,]
+df1_test<-df1[test1,]
 
 df2_train<-df2[train,]
 df2_test<-df2[test,]
@@ -232,3 +237,166 @@ summary(model1_tree)
 
 fitted1_tree<-predict(model1_tree, data=df1_test, type="class")
 err1_tree <- mean(as.numeric(fitted1_tree > 0.5) != df1_test$y_interest, na.rm=TRUE)
+#Fitting does not work properly
+
+
+train1_x = data.matrix(df1_train[, -1])
+train1_y = df1_train[,1]
+
+#define predictor and response variables in testing set
+test1_x = data.matrix(df1_test[, -1])
+test1_y = df1_test[, 1]
+
+#define final training and testing sets
+xgb_train1 = xgb.DMatrix(data = train1_x, label = train1_y)
+xgb_test1 = xgb.DMatrix(data = test1_x, label = test1_y)
+
+#defining a watchlist
+watchlist = list(train=xgb_train1, test=xgb_test1)
+
+#Setting the tuning parameters:
+max.depth <- 2 #Maximum depth of each tree. Set to zero for no constraints
+nrounds <- 1000 #Number of boosting iterations
+eta <-0.1 #Standard is 0.3; learning rate
+gamma<- 0 #Standard is 0; Minimum loss reduction required
+subsample <- 1 #Standard is 1; prevent overfitting by randomly sampling the from training
+min_child_weight <- 1 #Standard is 1; Minimum sum of instance weight (hessian) needed in a child
+lambda <- 1 #Standard is 1; L2 regularization term on weights
+alpha <- 0 #Standard is 0; L1 regularization term on weights.
+
+
+#fit XGBoost model and display training and testing data at each iteration
+model1_boost = xgb.train(data = xgb_train1, 
+                  max.depth = max.depth, 
+                  watchlist = watchlist, 
+                  nrounds = nrounds,
+                  eta = eta,
+                  gamma = gamma,
+                  subsample = subsample, 
+                  min_child_weight = min_child_weight,
+                  objective = "binary:logistic")
+
+#Evaluation on Hold Out Sample
+pred_y_interest = predict(model1_boost, xgb_test1)
+err1_boost<-mean(as.numeric(pred_y_interest > 0.5) != df1_test$y_interest, na.rm=TRUE)
+
+#Running diagnostics
+
+xgb.plot.multi.trees(model=model1_boost)
+
+# get information on how important each feature is
+importance_matrix_1 <- xgb.importance(model = model1_boost)
+# and plot it
+xgb.plot.importance(importance_matrix_1)
+
+########################Code seems to work until here#########################
+
+#Parameter Optimisation
+obj_func <- function(eta, max_depth, min_child_weight, subsample, lambda, alpha) {
+  
+  param <- list(
+    
+    xgb_train1 = xgb.DMatrix(data = train1_x, label = train1_y),
+    
+    # Hyperparameters 
+    eta = eta,
+    max_depth = max_depth,
+    min_child_weight = min_child_weight,
+    subsample = subsample,
+    lambda = lambda,
+    alpha = alpha,
+    
+    # Tree model; default booster
+    booster = "gbtree",
+    
+    # Regression problem; default objective function
+    objective = "binary:logistic",
+    
+    # Use RMSE
+    eval_metric = "error")
+  
+  xgbcv <- xgb.cv(params = param,
+                  data = xgb_train1,
+                  nrounds = 100,
+                  nfold=10,
+                  prediction = TRUE,
+                  early_stopping_rounds = 5,
+                  verbose = 1,
+                  maximize = F)
+  
+  lst <- list(
+    
+    # First argument must be named as "Score"
+    # Function finds maxima so inverting the output
+    Score = min(xgbcv$evaluation_log$test-error),
+    
+    # Get number of trees for the best performing model
+    nrounds = xgbcv$best_iteration
+  )
+  
+  return(lst)
+}
+
+bounds <- list(eta = c(0.0001, 0.3),
+               max_depth = c(1L, 10L),
+               min_child_weight = c(1, 50),
+               subsample = c(0.1, 1),
+               lambda = c(1, 10),
+               alpha = c(0, 10))
+
+#Setting Seed for reproducibility
+set.seed(1234)
+
+#Initializing the process to run in parallel
+cl <- makeCluster(8)
+registerDoParallel(cl)
+clusterExport(cl,c("train1_x", "train1_y"))
+clusterEvalQ(cl,expr= {
+  library(xgboost)
+})
+
+
+#Bayesian Optimzation. Plot gives back the progress of the optimization. If lower plot (utility)
+#is approaching zero, one can be optimistic that optimal parameter values were identified
+#(see the instructions manual for bayesOpt)
+bayes_out <- bayesOpt(FUN = obj_func, 
+                      bounds = bounds, 
+                      initPoints = length(bounds) + 2, 
+                      iters.n = 30,
+                      verbose=2,
+                      plotProgress = TRUE,
+                      parallel = TRUE)
+
+# Show relevant columns from the summary object 
+bayes_out$scoreSummary[1:5, c(3:8, 13)]
+# Get best parameters
+data.frame(getBestPars(bayes_out))
+
+opt_params1 <- append(list(booster = "gbtree", 
+                           objective = "binary:logistic", 
+                           eval_metric = "error"), 
+                      getBestPars(bayes_out))
+
+# Run cross validation 
+xgbcv1 <- xgb.cv(params = opt_params1,
+                 data = xgb_train1,
+                 nrounds = 100,
+                 nfold=10,
+                 prediction = TRUE,
+                 early_stopping_rounds = 5,
+                 verbose = 1,
+                 maximize = F)
+# Get optimal number of rounds
+nrounds1 = xgbcv1$best_iteration
+
+# Fit a xgb model
+model1_boost_opt <- xgboost(data = xgb_train1, 
+                  params = opt_params, 
+                  maximize = F, 
+                  early_stopping_rounds = 5, 
+                  nrounds = nrounds2, 
+                  verbose = 1
+)
+
+pred_y_interest_opt = predict(model1_boost_opt, xgb_test1)
+
