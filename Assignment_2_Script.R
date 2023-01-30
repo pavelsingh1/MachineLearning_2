@@ -14,11 +14,21 @@ library(car)
 library(broom)
 library(dplyr)
 
+#library(rpart.plot)
+
 #Goal: Predicting financial literacy question answers
 
 #####Dataset: National Financial Capability Survey####
 data <- read_csv("2021-SxS-Data-and-Data-Info/NFCS 2021 State Data 220627.csv")
 View(data)
+
+### (i had to add the following code in order to set the header to the actual column name)
+### remove headers and replace by first row
+names(data) <- as.matrix(data[1, ])
+data <- data[-1, ]
+data[] <- lapply(data, function(x) type.convert(as.character(x)))
+data
+
 
 ####Getting Summary Statistics####
 table(data$M6)
@@ -111,7 +121,7 @@ df1 <- data.frame(predict(dmy1, newdata = df1))
 
 #Check final dataframe
 View(df1)
-summary(df2)
+summary(df2)  #### this should be summary df1 i assume
 
 #Repeat for the question on bonds:
 df2<-subset(data, select = c(M8, A50A, A3Ar_w, A5_2015, A6, A8_2021, A9, A41, J2, J8, B14, M4, M20, J43,
@@ -197,10 +207,10 @@ sum(test1)
 df1_train<-df1[train1,]
 df1_test<-df1[test1,]
 
-df2_train<-df2[train,]
-df2_test<-df2[test,]
+df2_train<-df2[train,]      # here the variable gives us an error
+df2_test<-df2[test,]        # update -> i realised its because of train and test not having the 1 behind which needs to be adjusted. 
 
-df3_train<-df3[train,]
+df3_train<-df3[train,]      # same for this part
 df3_test<-df3[test,]
 
 ####Logistic regression####
@@ -280,11 +290,25 @@ ggplot(model.data3, aes(index, .std.resid)) +
 
 model1_tree<-rpart(y_interest~., data = df1_train, method="class")
 summary(model1_tree)
+#rpart.plot(model1_tree) #would show us the tree with the nodes
+                 
+ #model1_tree<-rpart(y_interest~., data = df1_train, method="class", control = rpart.control(minsplit = 20, minbucket = 7, maxdepth = 10, usesurrogate = 2, xval =10 ))
+ # googled a bit and found this control command... dont know if its useful tho because the problem is that the predictions are not being created.                
 
 fitted1_tree<-predict(model1_tree, data=df1_test, type="class")
-err1_tree <- mean(as.numeric(fitted1_tree > 0.5) != df1_test$y_interest, na.rm=TRUE)
+err1_tree <- mean(as.numeric(fitted1_tree > 0.5) != df1_test$y_interest, na.rm=TRUE) 
+# length(df1_test$y_interest) #length of both fitted1_tree and df_test$y_interest arent the same, meaning the err1_tree command doesnt work. 
+                 
+#table_mat <- table(df1_test$y_interest, fitted1_tree)
+#table_mat    #creates a table to differentiate between correct and wrong decisions.            
+                 
 #Fitting does not work properly
 
+ #https://cran.r-project.org/web/packages/tree/tree.pdf       #(page 13 of this website shows how to create class bar charts for classification tree)            
+ 
+ #accuracy_Test <- sum(diag(table_mat)) / sum(table_mat)                
+ #print(paste('Accuracy for test', accuracy_Test))  #to check accuracy from the table above
+                 
 
 train1_x = data.matrix(df1_train[, -1])
 train1_y = df1_train[,1]
